@@ -39,31 +39,56 @@ _(Or simply download the 3 files: `md_to_pdf.py`, `convert_md_to_pdf.bat`, `conv
 
 ---
 
+## 📦 What is `packages.txt`?
+
+This file is **crucial for Streamlit Community Cloud deployment**.
+
+The conversion engine (`md-to-pdf`) uses **Puppeteer**, which launches a headless Chrome browser. On a cloud server (Linux), Chrome needs specific system libraries (like `libnss3`, `libatk1.0`) to run.
+
+- **Local Machine**: You don't need this file because your computer likely already has Chrome or these libraries.
+- **Streamlit Cloud**: This file tells the cloud server: _"Hey, please `apt-get install` these Chromium dependencies so my app doesn't crash."_
+
+---
+
 ## 🏃 Usage
 
-### 🪟 On Windows
+### 🌟 1. Web Interface (Streamlit) - **Recommended**
 
-**Option 1 (Easiest):**
-Double-click the **`convert_md_to_pdf.bat`** file.
+The new interface allows you to:
 
-**Option 2 (Command Line):**
+- **Upload** files directly (Works on Cloud).
+- **Scan** local folders (Works on Desktop).
+- **Download** PDFs instantly.
 
-```cmd
-.\convert_md_to_pdf.bat
+**Run Locally:**
+
+```bash
+pip install -r requirements.txt
+streamlit run stream_pdf.py
 ```
 
-### 🍎 On macOS / 🐧 On Linux (Ubuntu, CentOS...)
+**Deploy to Streamlit Cloud:**
 
-1.  **Grant permission** (First time only):
+1. Push this code to GitHub.
+2. Go to [share.streamlit.io](https://share.streamlit.io/).
+3. Connect your repo.
+4. **Important**: The `packages.txt` file is automatically detected by Streamlit Cloud to install dependencies. You don't need to do anything extra!
 
-    ```bash
-    chmod +x convert_md_to_pdf.sh
-    ```
+---
 
-2.  **Run the script**:
-    ```bash
-    ./convert_md_to_pdf.sh
-    ```
+### 💻 2. Command Line (Legacy)
+
+If you prefer the old-school terminal way:
+
+**🪟 On Windows:**
+Double-click `convert_md_to_pdf.bat`.
+
+**🍎/🐧 On macOS / Linux:**
+
+```bash
+chmod +x convert_md_to_pdf.sh
+./convert_md_to_pdf.sh
+```
 
 ---
 
@@ -71,12 +96,12 @@ Double-click the **`convert_md_to_pdf.bat`** file.
 
 **1. "Node.js is NOT installed" error:**
 
-- Please install Node.js from the link in Prerequisites.
-- On Linux, you can run: `sudo apt install nodejs npm`
+- Please install Node.js from [nodejs.org](https://nodejs.org/).
+- On Streamlit Cloud, checking `packages.txt` includes `nodejs`.
 
-**2. "Puppeteer / Sandbox" errors on Linux:**
+**2. "Puppeteer / Sandbox" errors:**
 
-- The tool automatically adds `--no-sandbox` flag when running on Linux to fix this. If you still see errors, ensure you are running the latest version of this script (`md_to_pdf.py`).
+- The tool handles this automatically (`--no-sandbox`). If issues persist on Linux, check if `chromium` is installed.
 
 **3. "File not found" or "Command not found":**
 
