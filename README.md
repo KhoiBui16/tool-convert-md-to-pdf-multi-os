@@ -75,6 +75,17 @@ Here is the explanation of the files in this repository:
 
 ---
 
+## 📦 What is `packages.txt`? (Important for Cloud)
+
+This file is **crucial for Streamlit Community Cloud deployment**.
+
+The conversion engine uses **Puppeteer**, which launches a headless Chrome browser. On a simplified cloud server (Linux), Chrome needs specific system libraries (like `libnss3`, `libatk1.0`) to run.
+
+- **Local Machine**: You likely don't need this, as your OS handles these libraries.
+- **Streamlit Cloud**: This file tells the server to run `apt-get install` for these dependencies. **Without it, the app will crash on Cloud.**
+
+---
+
 ## 🔧 Setup Guide (Virtual Environment)
 
 It is recommended to use a **Virtual Environment** (venv) instead of installing globally or using Conda.

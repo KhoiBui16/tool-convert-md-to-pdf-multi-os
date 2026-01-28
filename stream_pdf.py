@@ -20,22 +20,89 @@ st.set_page_config(
 # --- STYLING ---
 st.markdown("""
 <style>
-    .main {
+    /* Main Background */
+    .stApp {
         background-color: #f8f9fa;
     }
-    .stButton>button {
-        width: 100%;
-        border-radius: 5px;
-        font-weight: bold;
+    
+    /* Headers */
+    h1, h2, h3 {
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: #2c3e50;
     }
-    .stDownloadButton>button {
-        width: 100%;
-        border-radius: 5px;
+    
+    /* Custom Card Container */
+    .css-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+        border: 1px solid #e9ecef;
     }
-    div[data-testid="stExpander"] {
+
+    /* Primary Button Styling */
+    div.stButton > button[kind="primary"] {
+        background: linear-gradient(90deg, #4b6cb7 0%, #182848 100%);
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        font-size: 16px;
         border-radius: 8px;
-        border: 1px solid #ddd;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        border: none;
+    }
+
+    /* Regular Buttons */
+    div.stButton > button[kind="secondary"] {
+        background-color: #ffffff;
+        border: 1px solid #ced4da;
+        color: #495057;
+        border-radius: 8px;
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        border-color: #4b6cb7;
+        color: #4b6cb7;
+    }
+
+    /* File Uploader */
+    div[data-testid="stFileUploader"] {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 12px;
+        border: 2px dashed #cbd5e0;
+    }
+
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #e9ecef;
+    }
+    
+    /* Status Messages */
+    div.stAlert {
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    /* Dataframe/Tables */
+    div[data-testid="stDataFrame"] {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    /* Expanders */
+    div[data-testid="stExpander"] {
+        background-color: white;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -149,30 +216,44 @@ def show_results(file_list_tuples):
 
 # --- MAIN UI ---
 st.title("📄 Markdown to PDF Pro")
-st.markdown("### Professional Converter & Viewer")
-st.caption("Powered by **Puppeteer** (Chromium) | Optimized for Windows, Mac, Linux & Cloud")
+st.markdown("##### Professional Converter & Viewer")
+st.markdown("Powered by **Puppeteer** (Chromium) | Optimized for Windows, Mac, Linux & Cloud")
+st.divider()
 
 # Sidebar Status
 npx_path, os_name = check_dependencies()
 with st.sidebar:
-    st.markdown("### ⚙️ System Status")
+    st.image("https://cdn-icons-png.flaticon.com/512/337/337946.png", width=60) # Generic PDF Icon
+    st.markdown("## System Status")
+    
     if npx_path:
-        st.success(f"🟢 **Ready**\n\nOS: `{os_name}`")
+        st.success(f"**System Ready**\n\nRunning on: `{os_name}`")
     else:
         st.error("🔴 **Node.js Missing**")
         st.info("Please install Node.js to continue.")
         st.stop()
     
     st.divider()
-    st.markdown("### 📝 Instructions")
+    st.markdown("### 📝 How to use")
+    
     st.markdown("""
-    1. **Choice Mode**: Cloud Upload or Local Folder.
-    2. **Convert**: Click the magic button.
-    3. **Preview & Download**: View results instantly.
-    """)
+    <div style="background-color: #f1f3f5; padding: 15px; border-radius: 10px; font-size: 14px;">
+    <b>1. Choose Mode</b><br>
+    Select 'Cloud Upload' or 'Local Folder' tab.<br><br>
+    <b>2. Select Files</b><br>
+    Drag & drop or browse your Markdown files.<br><br>
+    <b>3. Convert</b><br>
+    Click the <b>Start Conversion</b> button.<br><br>
+    <b>4. Result</b><br>
+    Preview instantly and download PDF or ZIP.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.caption("v2.0 | Created by KhoiBui16")
 
 # TABS
-tab_cloud, tab_local = st.tabs(["☁️ Upload & Convert", "📂 Local Batch Mode"])
+tab_cloud, tab_local = st.tabs(["🚀 Cloud / Upload Mode", "📂 Local Batch Mode"])
 
 # --- TAB 1: CLOUD / UPLOAD MODE ---
 with tab_cloud:
