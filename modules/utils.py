@@ -12,9 +12,18 @@ def is_cloud():
     return os.environ.get("STREAMLIT_RUNTIME_ENV") == "cloud" or "AMPLIFY_ID" in os.environ
 
 def check_dependencies():
-    """Check if Node.js/npx is available."""
+    """Check if Node.js/npx is available and install packages if on Cloud."""
     npx_path = shutil.which("npx")
-    return npx_path, "Cloud" if is_cloud() else platform.system()
+    os_name = "Cloud" if is_cloud() else platform.system()
+    
+    # On Cloud, if node_modules is missing, try npm install once
+    if is_cloud() and npx_path and not os.path.exists("node_modules"):
+        try:
+            subprocess.run("npm install", shell=True, capture_output=True)
+        except:
+            pass
+            
+    return npx_path, os_name
 
 def run_conversion_command(file_paths, progress_callback=None):
     """
@@ -37,8 +46,9 @@ def run_conversion_command(file_paths, progress_callback=None):
     if not to_process:
         return True, "No files changed.", "", 0, len(skipped)
 
-    # BATCHED PROCESSING (e.g., 5 files at a time to stay under RAM limits)
-    batch_size = 5
+    # BATCHED PROCESSING
+    # Slightly larger batch for performance, but careful with RAM
+    batch_size = 8 if not is_cloud() else 4 
     total_new = len(to_process)
     
     extra_flags = ""
@@ -53,18 +63,22 @@ def run_conversion_command(file_paths, progress_callback=None):
         quoted_files = [f'"{f}"' for f in batch]
         file_args = " ".join(quoted_files)
         
-        # Prefer local node_modules if present (much faster)
+        # Binary selection
         binary = "npx md-to-pdf"
         if os.path.exists("node_modules/.bin/md-to-pdf"):
             binary = "node_modules/.bin/md-to-pdf" if platform.system() != "Windows" else "node_modules\\.bin\\md-to-pdf.cmd"
+        elif platform.system() == "Windows":
+             # Try global npx on windows if local fails
+             binary = "npx md-to-pdf"
 
         command = f"{binary}{extra_flags} {file_args}"
         
         if progress_callback:
-            progress_callback(i / total_new, f"Converting batch {i//batch_size + 1}...")
+            percent = i / total_new
+            msg = f"Processing files {i+1} to {min(i+batch_size, total_new)} of {total_new}..."
+            progress_callback(percent, msg)
 
         try:
-            # shell=True required for Windows/npx
             process = subprocess.run(command, shell=True, capture_output=True, text=True)
             all_out += process.stdout
             all_err += process.stderr

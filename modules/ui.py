@@ -41,13 +41,19 @@ def render_home():
         st.markdown("## 📄 PDF Pro")
         render_sidebar_shared(slot="top")
         
-        # Nav Button to Viewer
+        st.divider()
         st.markdown("### 🧭 Navigation")
-        # Enabled always as per user request
         if st.button("👁️ Open PDF Viewer", type="primary", use_container_width=True):
              st.session_state.current_view = "viewer"
              st.rerun()
         
+        if st.session_state.processed_files:
+            if st.button("🗑️ Clear History", use_container_width=True, help="Remove all files from the viewer session"):
+                st.session_state.processed_files = []
+                st.session_state.viewer_file = None
+                st.success("History cleared!")
+                st.rerun()
+
         st.divider()
         st.markdown("### 📝 Quick Guide")
         st.info("1. Upload/Select Files\n2. Convert\n3. Click **Viewer** to read")
@@ -235,6 +241,12 @@ def render_viewer():
         if st.button("🏠 Back to Home", type="secondary", use_container_width=True):
              st.session_state.current_view = "home"
              st.rerun()
+
+        if st.button("🗑️ Clear All Results", use_container_width=True, help="Reset workspace"):
+            st.session_state.processed_files = []
+            st.session_state.viewer_file = None
+            st.session_state.current_view = "home"
+            st.rerun()
              
         render_sidebar_shared(slot="top_no_caption")
         
