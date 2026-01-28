@@ -1,383 +1,52 @@
 import streamlit as st
-import os
-import subprocess
-import shutil
-import platform
-import glob
 import tempfile
-import base64
-import zipfile
-from pathlib import Path
+import sys
+import os
 
-# --- CONFIGURATION ---
+# Ensure we can import from modules
+sys.path.append(os.getcwd())
+
+from modules.styles import PREMIUM_STYLE
+from modules.ui import render_home, render_viewer
+
+# --- APP CONFIG ---
 st.set_page_config(
-    page_title="PDF Converter Pro",
+    page_title="Markdown to PDF Pro",
     page_icon="📄",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- STYLING ---
-st.markdown("""
-<style>
-    /* Main Background */
-    .stApp {
-        background-color: #f8f9fa;
-    }
-    
-    /* Headers */
-    h1, h2, h3 {
-        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        color: #2c3e50;
-    }
-    
-    /* Custom Card Container */
-    .css-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-        border: 1px solid #e9ecef;
-    }
+# Apply Styles
+st.markdown(PREMIUM_STYLE, unsafe_allow_html=True)
 
-    /* Primary Button Styling */
-    div.stButton > button[kind="primary"] {
-        background: linear-gradient(90deg, #4b6cb7 0%, #182848 100%);
-        color: white;
-        border: none;
-        padding: 10px 24px;
-        font-size: 16px;
-        border-radius: 8px;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    div.stButton > button[kind="primary"]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-        border: none;
-    }
+from modules.utils import get_fixed_temp_dir
+import glob
 
-    /* Regular Buttons */
-    div.stButton > button[kind="secondary"] {
-        background-color: #ffffff;
-        border: 1px solid #ced4da;
-        color: #495057;
-        border-radius: 8px;
-    }
-    div.stButton > button[kind="secondary"]:hover {
-        border-color: #4b6cb7;
-        color: #4b6cb7;
-    }
-
-    /* File Uploader */
-    div[data-testid="stFileUploader"] {
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 12px;
-        border: 2px dashed #cbd5e0;
-    }
-
-    /* Sidebar Styling */
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #e9ecef;
-    }
-    
-    /* Status Messages */
-    div.stAlert {
-        border-radius: 8px;
-        border: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    /* Dataframe/Tables */
-    div[data-testid="stDataFrame"] {
-        border: 1px solid #e9ecef;
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    
-    /* Expanders */
-    div[data-testid="stExpander"] {
-        background-color: white;
-        border-radius: 8px;
-        border: 1px solid #e9ecef;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- HELPER FUNCTIONS ---
-def check_dependencies():
-    """Check if Node.js/npx is available."""
-    npx_path = shutil.which("npx")
-    return npx_path, platform.system()
-
-def run_conversion_command(file_paths):
-    """Run npx md-to-pdf on selected files."""
-    quoted_files = [f'"{f}"' for f in file_paths]
-    file_args = " ".join(quoted_files)
-    
-    extra_flags = ""
-    if platform.system() == "Linux":
-        extra_flags = " --launch-options '{\"args\": [\"--no-sandbox\"]}'"
-    
-    command = f"npx md-to-pdf{extra_flags} {file_args}"
-    
-    try:
-        process = subprocess.run(command, shell=True, capture_output=True, text=True)
-        return process.returncode == 0, process.stdout, process.stderr
-    except Exception as e:
-        return False, "", str(e)
-
-def display_pdf(file_path):
-    """Embed PDF in Iframe for preview."""
-    with open(file_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600px" style="border:none; border-radius:8px;"></iframe>'
-    st.markdown(pdf_display, unsafe_allow_html=True)
-
-def create_zip(file_paths, zip_name="converted_docs.zip"):
-    """Create a zip file from a list of files."""
-    zip_path = os.path.join(os.path.dirname(file_paths[0]), zip_name)
-    with zipfile.ZipFile(zip_path, 'w') as zipf:
-        for file in file_paths:
-            zipf.write(file, os.path.basename(file))
-    return zip_path
-
-# --- SESSION STATE INITIALIZATION ---
-if 'processed_files' not in st.session_state:
-    st.session_state.processed_files = [] # List of tuples: (md_path, pdf_path)
+# --- SESSION STATE & PERSISTENCE ---
 if 'temp_dir' not in st.session_state:
-    st.session_state.temp_dir = tempfile.mkdtemp()
-    
-# --- REUSABLE RESULTS DISPLAY ---
-def show_results(file_list_tuples):
-    """
-    Display results UI (Zip, Preview, Download) for a list of (md_path, pdf_path).
-    """
-    if not file_list_tuples:
-        return
+    st.session_state.temp_dir = get_fixed_temp_dir()
 
-    st.divider()
-    st.subheader("🎉 Results")
-    
-    # 1. Download All Zip
-    pdf_list = [p[1] for p in file_list_tuples]
-    if pdf_list:
-        try:
-            zip_path = create_zip(pdf_list)
-            col_zip, _ = st.columns([1, 3])
-            with col_zip:
-                with open(zip_path, "rb") as f:
-                    st.download_button(
-                        label="📦 Download All (ZIP)",
-                        data=f,
-                        file_name="converted_docs.zip",
-                        mime="application/zip",
-                        type="primary"
-                    )
-        except Exception as e:
-            st.warning(f"Could not create ZIP: {e}")
+# Auto-load existing PDFs from temp dir to survive reloads
+if 'processed_files' not in st.session_state:
+    st.session_state.processed_files = []
+    # Scan for md and pdf pairs
+    md_files = glob.glob(os.path.join(st.session_state.temp_dir, "*.md"))
+    results = []
+    for md_p in md_files:
+        pdf_p = os.path.splitext(md_p)[0] + ".pdf"
+        if os.path.exists(pdf_p):
+            results.append((md_p, pdf_p))
+    st.session_state.processed_files = results
 
-    # 2. Individual Files List
-    for md_path, pdf_path in file_list_tuples:
-        file_name = os.path.basename(pdf_path)
-        
-        # Check if file exists before trying to open
-        if not os.path.exists(pdf_path):
-            st.error(f"File not found: {pdf_path}")
-            continue
+if 'current_view' not in st.session_state:
+    st.session_state.current_view = "home"
 
-        with st.expander(f"📄 {file_name}", expanded=False):
-            col1, col2 = st.columns([1, 3])
-            
-            with col1:
-                st.write("**Actions:**")
-                # Download Button
-                try:
-                    with open(pdf_path, "rb") as f:
-                        st.download_button(
-                            label="⬇️ Download PDF",
-                            data=f,
-                            file_name=file_name,
-                            mime="application/pdf",
-                            key=f"dl_{file_name}_{os.path.getmtime(pdf_path)}" # Unique key
-                        )
-                except Exception as e:
-                    st.error(f"Read error: {e}")
-            
-            with col2:
-                st.write("**Preview:**")
-                try:
-                    display_pdf(pdf_path)
-                except Exception as e:
-                    st.warning(f"Preview unavailable: {e}")
+# --- ROUTER ---
+# Sidebar is always rendered first to handle navigation
+# Sidebar (Handled inside views for custom order)
 
-# --- MAIN UI ---
-st.title("📄 Markdown to PDF Pro")
-st.markdown("##### Professional Converter & Viewer")
-st.markdown("Powered by **Puppeteer** (Chromium) | Optimized for Windows, Mac, Linux & Cloud")
-st.divider()
-
-# Sidebar Status
-npx_path, os_name = check_dependencies()
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/337/337946.png", width=60) # Generic PDF Icon
-    st.markdown("## System Status")
-    
-    if npx_path:
-        st.success(f"**System Ready**\n\nRunning on: `{os_name}`")
-    else:
-        st.error("🔴 **Node.js Missing**")
-        st.info("Please install Node.js to continue.")
-        st.stop()
-    
-    st.divider()
-    st.markdown("### 📝 How to use")
-    
-    st.markdown("""
-    <div style="background-color: #f1f3f5; padding: 15px; border-radius: 10px; font-size: 14px;">
-    <b>1. Choose Mode</b><br>
-    Select 'Cloud Upload' or 'Local Folder' tab.<br><br>
-    <b>2. Select Files</b><br>
-    Drag & drop or browse your Markdown files.<br><br>
-    <b>3. Convert</b><br>
-    Click the <b>Start Conversion</b> button.<br><br>
-    <b>4. Result</b><br>
-    Preview instantly and download PDF or ZIP.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.caption("v2.0 | Created by KhoiBui16")
-
-# TABS
-tab_cloud, tab_local = st.tabs(["🚀 Cloud / Upload Mode", "📂 Local Batch Mode"])
-
-# --- TAB 1: CLOUD / UPLOAD MODE ---
-with tab_cloud:
-    st.info("📂 **Project Workspace**: Upload files here. They will be processed in a temporary environment.")
-
-    uploaded_files = st.file_uploader(
-        "Drop Markdown files here:", 
-        type=["md"], 
-        accept_multiple_files=True
-    )
-    
-    if uploaded_files:
-        if st.button("🚀 Start Conversion (Cloud)", type="primary"):
-            st.session_state.processed_files = [] # Reset
-            
-            progress_bar = st.progress(0)
-            status_container = st.status("Processing...", expanded=True)
-            
-            input_paths = []
-            
-            # Save to Temp
-            for i, uploaded_file in enumerate(uploaded_files):
-                safe_name = uploaded_file.name
-                save_path = os.path.join(st.session_state.temp_dir, safe_name)
-                with open(save_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                input_paths.append(save_path)
-                status_container.write(f"📄 Uploaded: `{safe_name}`")
-            
-            # Convert
-            status_container.write("⚙️ Engine Running...")
-            success, out, err = run_conversion_command(input_paths)
-            progress_bar.progress(100)
-            
-            if success:
-                status_container.update(label="✅ Cloud Conversion Complete!", state="complete", expanded=False)
-                # Collect Results
-                results = []
-                for md_path in input_paths:
-                    pdf_path = os.path.splitext(md_path)[0] + ".pdf"
-                    if os.path.exists(pdf_path):
-                        results.append((md_path, pdf_path))
-                st.session_state.processed_files = results
-            else:
-                status_container.update(label="❌ Failed", state="error")
-                st.error(err)
-
-    # Display Cloud Results
-    if st.session_state.processed_files:
-        show_results(st.session_state.processed_files)
-
-
-# --- TAB 2: LOCAL MODE ---
-with tab_local:
-    st.warning("⚠️ **Local Mode**: Edits files directly on your disk.")
-    
-    if 'local_results' not in st.session_state:
-        st.session_state.local_results = []
-
-    if 'local_path' not in st.session_state:
-        st.session_state.local_path = os.getcwd()
-
-    c1, c2 = st.columns([4, 1])
-    path_in = c1.text_input("Local Folder Path:", st.session_state.local_path)
-    if c2.button("Reload"):
-        st.session_state.local_path = path_in
-        st.rerun()
-
-    if os.path.isdir(path_in):
-        os.chdir(path_in)
-        
-        # --- NEW: LIST ALL FILES ---
-        all_files = [f for f in os.listdir('.') if os.path.isfile(f)]
-        if all_files:
-            with st.expander("📂 View Files in Folder", expanded=True):
-                file_data = []
-                for f in all_files:
-                    try:
-                        size_kb = os.path.getsize(f) / 1024
-                        file_data.append({
-                            "File Name": f, 
-                            "Size (KB)": f"{size_kb:.1f}", 
-                            "Type": os.path.splitext(f)[1]
-                        })
-                    except:
-                        pass
-                st.dataframe(file_data, use_container_width=True, hide_index=True)
-
-        mds = glob.glob("*.md")
-        
-        if mds:
-            col_sel1, col_sel2 = st.columns([3,1])
-            with col_sel1:
-                sel = st.multiselect("Select Files:", mds, default=mds)
-            with col_sel2:
-                st.write("")
-                st.write("")
-                if st.button("🚀 Convert Local", type="primary", disabled=not sel):
-                    st.session_state.local_results = [] # Reset
-                    
-                    with st.status("Converting locally...", expanded=True) as status:
-                        # 1. Convert
-                        s, o, e = run_conversion_command(sel)
-                        
-                        if s:
-                            status.update(label="✅ Local Conversion Done!", state="complete", expanded=False)
-                            # 2. Collect Results (Absolute Paths)
-                            results = []
-                            for f in sel:
-                                abs_md = os.path.abspath(f)
-                                abs_pdf = os.path.splitext(abs_md)[0] + ".pdf"
-                                if os.path.exists(abs_pdf):
-                                    results.append((abs_md, abs_pdf))
-                            st.session_state.local_results = results
-                        else:
-                            status.update(label="❌ Failed", state="error")
-                            st.error(e)
-            
-            # Display Local Results using the SAME function
-            if st.session_state.local_results:
-                st.info(f"📂 Output Folder: `{path_in}`")
-                show_results(st.session_state.local_results)
-                
-        else:
-            st.info("No .md files found in this folder.")
-    else:
-        st.error("Invalid path.")
+if st.session_state.current_view == "home":
+    render_home()
+else:
+    render_viewer() # Viewer adds EXTRA elements to sidebar
