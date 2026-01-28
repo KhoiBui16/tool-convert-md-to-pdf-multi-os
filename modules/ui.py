@@ -43,19 +43,19 @@ def render_home():
         
         st.divider()
         st.markdown("### 🧭 Navigation")
-        if st.button("👁️ Open PDF Viewer", type="primary", use_container_width=True):
+        if st.button("👁️ Open PDF Viewer", type="primary", width=\ stretch\):
              st.session_state.current_view = "viewer"
              st.rerun()
         
         if st.session_state.processed_files:
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("🗑️ Clear History", use_container_width=True, help="Clear list"):
+                if st.button("🗑️ Clear History", width=\ stretch\, help="Clear list"):
                     st.session_state.processed_files = []
                     st.session_state.viewer_file = None
                     st.rerun()
             with c2:
-                if st.button("🧹 Wipe Cache", use_container_width=True, help="Delete physical files from disk"):
+                if st.button("🧹 Wipe Cache", width=\ stretch\, help="Delete physical files from disk"):
                     import shutil
                     if os.path.exists(st.session_state.temp_dir):
                         shutil.rmtree(st.session_state.temp_dir)
@@ -80,7 +80,7 @@ def render_home():
         uploaded_files = st.file_uploader("Drop MD files here:", type=["md"], accept_multiple_files=True)
         
         if uploaded_files:
-            if st.button("🚀 Convert Now", type="primary", use_container_width=True):
+            if st.button("🚀 Convert Now", type="primary", width=\ stretch\):
                 with st.status("Processing...", expanded=True) as status:
                     input_paths = []
                     # Save files
@@ -167,7 +167,7 @@ def render_home():
                         },
                         disabled=["File", "Path", "Full Path"],
                         hide_index=True,
-                        use_container_width=True,
+                        width=\ stretch\,
                         height=350,
                         key="file_selector_df"
                     )
@@ -214,7 +214,7 @@ def render_viewer():
         with st.sidebar:
             st.markdown("## 📄 PDF Pro")
             st.divider()
-            if st.button("🏠 Back to Home", type="secondary", use_container_width=True):
+            if st.button("🏠 Back to Home", type="secondary", width=\ stretch\):
                  st.session_state.current_view = "home"
                  st.rerun()
             render_sidebar_shared(slot="top_no_caption")
@@ -239,7 +239,7 @@ def render_viewer():
                 col_n, col_d = st.columns([4, 1])
                 with col_n:
                     is_active = (st.session_state.viewer_file == path)
-                    if st.button(f"{'👁️' if is_active else '📄'} {name}", key=f"sel_{name}", use_container_width=True):
+                    if st.button(f"{'👁️' if is_active else '📄'} {name}", key=f"sel_{name}", width=\ stretch\):
                         st.session_state.viewer_file = path
                         st.rerun()
                 with col_d:
@@ -255,16 +255,16 @@ def render_viewer():
             if all_pdfs:
                  zip_path = create_zip(all_pdfs)
                  with open(zip_path, "rb") as f:
-                     st.download_button("📦 Download All (.zip)", f, "batch_result.zip", "application/zip", use_container_width=True)
+                     st.download_button("📦 Download All (.zip)", f, "batch_result.zip", "application/zip", width=\ stretch\)
         
         st.divider()
         
         # 2. NAVIGATION & STATUS
-        if st.button("🏠 Back to Home", type="secondary", use_container_width=True):
+        if st.button("🏠 Back to Home", type="secondary", width=\ stretch\):
              st.session_state.current_view = "home"
              st.rerun()
 
-        if st.button("🗑️ Clear All Results", use_container_width=True, help="Reset workspace"):
+        if st.button("🗑️ Clear All Results", width=\ stretch\, help="Reset workspace"):
             st.session_state.processed_files = []
             st.session_state.viewer_file = None
             st.session_state.current_view = "home"
