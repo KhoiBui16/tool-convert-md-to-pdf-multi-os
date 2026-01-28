@@ -243,6 +243,24 @@ with tab_local:
 
     if os.path.isdir(path_in):
         os.chdir(path_in)
+        
+        # --- NEW: LIST ALL FILES ---
+        all_files = [f for f in os.listdir('.') if os.path.isfile(f)]
+        if all_files:
+            with st.expander("📂 View Files in Folder", expanded=True):
+                file_data = []
+                for f in all_files:
+                    try:
+                        size_kb = os.path.getsize(f) / 1024
+                        file_data.append({
+                            "File Name": f, 
+                            "Size (KB)": f"{size_kb:.1f}", 
+                            "Type": os.path.splitext(f)[1]
+                        })
+                    except:
+                        pass
+                st.dataframe(file_data, use_container_width=True, hide_index=True)
+
         mds = glob.glob("*.md")
         
         if mds:
