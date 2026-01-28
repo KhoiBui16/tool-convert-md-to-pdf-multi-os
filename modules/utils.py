@@ -7,22 +7,25 @@ import zipfile
 import base64
 import streamlit as st
 
+def is_cloud():
+    """Detect if running on Streamlit Cloud."""
+    return os.environ.get("STREAMLIT_RUNTIME_ENV") == "cloud" or "AMPLIFY_ID" in os.environ
+
 def check_dependencies():
     """Check if Node.js/npx is available."""
     npx_path = shutil.which("npx")
-    return npx_path, platform.system()
+    return npx_path, "Cloud" if is_cloud() else platform.system()
 
-def run_conversion_command(file_paths):
+def run_conversion_command(file_paths, progress_callback=None):
     """
-    Run npx md-to-pdf on files, SKIPPING those that are already up-to-date.
-    Returns: (success, stdout, stderr, count_new, count_skip)
+    Run md-to-pdf on files, SKIPPING those that are already up-to-date.
+    Uses batches to prevent RAM crashes on large selections.
     """
     to_process = []
     skipped = []
     
     for md_path in file_paths:
         pdf_path = os.path.splitext(md_path)[0] + ".pdf"
-        # Check if PDF exists and is newer than MD file
         if os.path.exists(pdf_path):
             md_mtime = os.path.getmtime(md_path)
             pdf_mtime = os.path.getmtime(pdf_path)
@@ -31,25 +34,47 @@ def run_conversion_command(file_paths):
                 continue
         to_process.append(md_path)
     
-    # Run conversion ONLY for files that need it
-    if to_process:
-        quoted_files = [f'"{f}"' for f in to_process]
+    if not to_process:
+        return True, "No files changed.", "", 0, len(skipped)
+
+    # BATCHED PROCESSING (e.g., 5 files at a time to stay under RAM limits)
+    batch_size = 5
+    total_new = len(to_process)
+    
+    extra_flags = ""
+    if platform.system() == "Linux":
+        extra_flags = " --launch-options '{\"args\": [\"--no-sandbox\"]}'"
+
+    success_all = True
+    all_out, all_err = "", ""
+    
+    for i in range(0, total_new, batch_size):
+        batch = to_process[i:i+batch_size]
+        quoted_files = [f'"{f}"' for f in batch]
         file_args = " ".join(quoted_files)
         
-        extra_flags = ""
-        if platform.system() == "Linux":
-            extra_flags = " --launch-options '{\"args\": [\"--no-sandbox\"]}'"
+        # Prefer local node_modules if present (much faster)
+        binary = "npx md-to-pdf"
+        if os.path.exists("node_modules/.bin/md-to-pdf"):
+            binary = "node_modules/.bin/md-to-pdf" if platform.system() != "Windows" else "node_modules\\.bin\\md-to-pdf.cmd"
+
+        command = f"{binary}{extra_flags} {file_args}"
         
-        command = f"npx md-to-pdf{extra_flags} {file_args}"
-        
+        if progress_callback:
+            progress_callback(i / total_new, f"Converting batch {i//batch_size + 1}...")
+
         try:
-            # shell=True required for Windows to find npx sometimes, but also works on Linux
+            # shell=True required for Windows/npx
             process = subprocess.run(command, shell=True, capture_output=True, text=True)
-            return process.returncode == 0, process.stdout, process.stderr, len(to_process), len(skipped)
+            all_out += process.stdout
+            all_err += process.stderr
+            if process.returncode != 0:
+                success_all = False
         except Exception as e:
-            return False, "", str(e), len(to_process), len(skipped)
-    else:
-        return True, "No files changed.", "", 0, len(skipped)
+            all_err += f"\nRuntime Error: {str(e)}"
+            success_all = False
+            
+    return success_all, all_out, all_err, total_new, len(skipped)
 
 def create_zip(file_paths, zip_name="converted_docs.zip"):
     """Create a zip file from list of paths."""

@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import glob
-from modules.utils import run_conversion_command, create_zip, display_pdf, check_dependencies
+from modules.utils import run_conversion_command, create_zip, display_pdf, check_dependencies, is_cloud
 
 def render_sidebar_shared(slot="bottom"):
     """Render shared sidebar elements (Status, Nav, Version)."""
@@ -43,8 +43,8 @@ def render_home():
         
         # Nav Button to Viewer
         st.markdown("### 🧭 Navigation")
-        disabled = not bool(st.session_state.processed_files)
-        if st.button("👁️ Open PDF Viewer", type="primary", use_container_width=True, disabled=disabled):
+        # Enabled always as per user request
+        if st.button("👁️ Open PDF Viewer", type="primary", use_container_width=True):
              st.session_state.current_view = "viewer"
              st.rerun()
         
@@ -73,7 +73,13 @@ def render_home():
                         input_paths.append(save_path)
                     
                     status.write("⚙️ Running Engine...")
-                    s, o, e, new, skip = run_conversion_command(input_paths)
+                    
+                    # Progress logic
+                    p_bar = st.progress(0, text="Starting...")
+                    def up(p, t): p_bar.progress(p, text=t)
+                    
+                    s, o, e, new, skip = run_conversion_command(input_paths, progress_callback=up)
+                    p_bar.empty()
                     
                     if s:
                         # Re-scan processed files from input
@@ -95,8 +101,15 @@ def render_home():
 
     # --- LOCAL BATCH ---
     with tab_local:
+        if is_cloud():
+            st.warning("⚠️ **Local Mode is for Desktop Only**")
+            st.info("On Streamlit Cloud, the server cannot access your local files. Please use the **Cloud / Upload** tab instead.")
+            st.expander("Why?", expanded=False).write("For security and technical reasons, web browsers cannot give websites access to your entire folder structure. Local Mode only works when you run the app on your own computer.")
+        else:
+            st.info("💡 **Tip**: Running on your desktop? You can process folders directly.")
+
         if 'local_path' not in st.session_state: st.session_state.local_path = os.getcwd()
-        path_in = st.text_input("Local Folder:", st.session_state.local_path)
+        path_in = st.text_input("Local Folder Path:", st.session_state.local_path)
         
         if os.path.isdir(path_in):
             # Recursive search for .md files in all subfolders
@@ -150,7 +163,13 @@ def render_home():
                 
                 if st.button("🚀 Convert Selected Files", type="primary", disabled=len(sel)==0):
                     with st.status("Converting...", expanded=True) as status:
-                        s, o, e, new, skip = run_conversion_command(sel)
+                        # Progress logic
+                        p_bar = st.progress(0, text="Initializing...")
+                        def up(p, t): p_bar.progress(p, text=t)
+
+                        s, o, e, new, skip = run_conversion_command(sel, progress_callback=up)
+                        p_bar.empty()
+
                         if s:
                             results = []
                             for f in sel:
@@ -168,10 +187,20 @@ def render_home():
 
 def render_viewer():
     if not st.session_state.processed_files:
-        st.warning("No files loaded. Go to Home to convert files.")
-        if st.button("⬅️ Back to Home"): 
+        st.info("💡 **Viewer is Empty**")
+        st.write("You haven't converted any files yet this session.")
+        if st.button("⬅️ Back to Home to Convert"): 
              st.session_state.current_view = "home"
              st.rerun()
+        
+        # Still show shared sidebar elements even if empty
+        with st.sidebar:
+            st.markdown("## 📄 PDF Pro")
+            st.divider()
+            if st.button("🏠 Back to Home", type="secondary", use_container_width=True):
+                 st.session_state.current_view = "home"
+                 st.rerun()
+            render_sidebar_shared(slot="top_no_caption")
         return
 
     # --- SIDEBAR (CUSTOM ORDER) ---

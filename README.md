@@ -16,6 +16,7 @@ Supports **Windows**, **macOS**, **Linux**, and **Streamlit Cloud** deployment.
 
 ### UI/UX Highlights
 
+- **v3.4**: Parallel batched conversion, Cloud environment detection, and `package.json` for instant startup.
 - **Premium Design**: Animated gradient background, glassmorphism cards, modern typography.
 - **Two-View SPA**: Dedicated **Home** (conversion) and **Viewer** (reading) views.
 - **Zen Mode PDF Viewer**: Full-width, 90vh height iframe with `#view=FitH` for optimal reading.
@@ -34,6 +35,7 @@ Supports **Windows**, **macOS**, **Linux**, and **Streamlit Cloud** deployment.
 ```
 tool-convert-md-to-pdf-multi-os/
 ├── stream_pdf.py          # Main Streamlit App Entry Point
+├── package.json           # Node.js dependencies (Speeds up Cloud startup)
 ├── modules/
 │   ├── __init__.py
 │   ├── ui.py              # Home & Viewer rendering logic
