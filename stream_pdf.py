@@ -84,6 +84,69 @@ if 'processed_files' not in st.session_state:
 if 'temp_dir' not in st.session_state:
     st.session_state.temp_dir = tempfile.mkdtemp()
     
+# --- REUSABLE RESULTS DISPLAY ---
+def show_results(file_list_tuples):
+    """
+    Display results UI (Zip, Preview, Download) for a list of (md_path, pdf_path).
+    """
+    if not file_list_tuples:
+        return
+
+    st.divider()
+    st.subheader("🎉 Results")
+    
+    # 1. Download All Zip
+    pdf_list = [p[1] for p in file_list_tuples]
+    if pdf_list:
+        try:
+            zip_path = create_zip(pdf_list)
+            col_zip, _ = st.columns([1, 3])
+            with col_zip:
+                with open(zip_path, "rb") as f:
+                    st.download_button(
+                        label="📦 Download All (ZIP)",
+                        data=f,
+                        file_name="converted_docs.zip",
+                        mime="application/zip",
+                        type="primary"
+                    )
+        except Exception as e:
+            st.warning(f"Could not create ZIP: {e}")
+
+    # 2. Individual Files List
+    for md_path, pdf_path in file_list_tuples:
+        file_name = os.path.basename(pdf_path)
+        
+        # Check if file exists before trying to open
+        if not os.path.exists(pdf_path):
+            st.error(f"File not found: {pdf_path}")
+            continue
+
+        with st.expander(f"📄 {file_name}", expanded=False):
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                st.write("**Actions:**")
+                # Download Button
+                try:
+                    with open(pdf_path, "rb") as f:
+                        st.download_button(
+                            label="⬇️ Download PDF",
+                            data=f,
+                            file_name=file_name,
+                            mime="application/pdf",
+                            key=f"dl_{file_name}_{os.path.getmtime(pdf_path)}" # Unique key
+                        )
+                except Exception as e:
+                    st.error(f"Read error: {e}")
+            
+            with col2:
+                st.write("**Preview:**")
+                try:
+                    display_pdf(pdf_path)
+                except Exception as e:
+                    st.warning(f"Preview unavailable: {e}")
+
 # --- MAIN UI ---
 st.title("📄 Markdown to PDF Pro")
 st.markdown("### Professional Converter & Viewer")
@@ -103,10 +166,9 @@ with st.sidebar:
     st.divider()
     st.markdown("### 📝 Instructions")
     st.markdown("""
-    1. **Upload** your `.md` files.
-    2. Click **Convert**.
-    3. **Preview** the PDF.
-    4. **Download** individually or as ZIP.
+    1. **Choice Mode**: Cloud Upload or Local Folder.
+    2. **Convert**: Click the magic button.
+    3. **Preview & Download**: View results instantly.
     """)
 
 # TABS
@@ -114,31 +176,24 @@ tab_cloud, tab_local = st.tabs(["☁️ Upload & Convert", "📂 Local Batch Mod
 
 # --- TAB 1: CLOUD / UPLOAD MODE ---
 with tab_cloud:
-    st.info("📂 **Project Workspace**: Upload files here. They will be processed in a temporary `docs` environment.")
+    st.info("📂 **Project Workspace**: Upload files here. They will be processed in a temporary environment.")
 
     uploaded_files = st.file_uploader(
         "Drop Markdown files here:", 
         type=["md"], 
-        accept_multiple_files=True,
-        help="You can upload multiple files at once."
+        accept_multiple_files=True
     )
     
     if uploaded_files:
-        col_action, col_status = st.columns([1, 4])
-        with col_action:
-            convert_btn = st.button("🚀 Start Conversion", type="primary", use_container_width=True)
-        
-        if convert_btn:
-            # Clear previous results
-            st.session_state.processed_files = []
+        if st.button("🚀 Start Conversion (Cloud)", type="primary"):
+            st.session_state.processed_files = [] # Reset
             
-            # Progress UI
             progress_bar = st.progress(0)
-            status_container = st.status("Processing files...", expanded=True)
+            status_container = st.status("Processing...", expanded=True)
             
             input_paths = []
             
-            # 1. Save uploads to Temp Session Directory
+            # Save to Temp
             for i, uploaded_file in enumerate(uploaded_files):
                 safe_name = uploaded_file.name
                 save_path = os.path.join(st.session_state.temp_dir, safe_name)
@@ -146,78 +201,37 @@ with tab_cloud:
                     f.write(uploaded_file.getbuffer())
                 input_paths.append(save_path)
                 status_container.write(f"📄 Uploaded: `{safe_name}`")
-                progress_bar.progress((i + 1) / (len(uploaded_files) * 2))
-
-            # 2. Convert
-            status_container.write("⚙️ Running PDF Engine...")
-            success, out, err = run_conversion_command(input_paths)
             
+            # Convert
+            status_container.write("⚙️ Engine Running...")
+            success, out, err = run_conversion_command(input_paths)
             progress_bar.progress(100)
             
             if success:
-                status_container.update(label="✅ Conversion Complete!", state="complete", expanded=False)
-                
-                # Check results
+                status_container.update(label="✅ Cloud Conversion Complete!", state="complete", expanded=False)
+                # Collect Results
                 results = []
                 for md_path in input_paths:
-                    pdf_name = os.path.splitext(os.path.basename(md_path))[0] + ".pdf"
-                    pdf_path = os.path.join(st.session_state.temp_dir, pdf_name)
+                    pdf_path = os.path.splitext(md_path)[0] + ".pdf"
                     if os.path.exists(pdf_path):
                         results.append((md_path, pdf_path))
-                
                 st.session_state.processed_files = results
             else:
-                status_container.update(label="❌ Conversion Failed", state="error")
-                st.error("Error Log:")
-                st.code(err)
+                status_container.update(label="❌ Failed", state="error")
+                st.error(err)
 
-    # --- DISPLAY RESULTS (PERSISTENT) ---
+    # Display Cloud Results
     if st.session_state.processed_files:
-        st.divider()
-        st.subheader("🎉 Results")
-        
-        # Download All Zip
-        pdf_list = [p[1] for p in st.session_state.processed_files]
-        zip_path = create_zip(pdf_list)
-        
-        col_zip, _ = st.columns([1, 3])
-        with col_zip:
-            with open(zip_path, "rb") as f:
-                st.download_button(
-                    label="📦 Download All (ZIP)",
-                    data=f,
-                    file_name="converted_docs.zip",
-                    mime="application/zip",
-                    type="primary"
-                )
+        show_results(st.session_state.processed_files)
 
-        # Individual Files List
-        for md_path, pdf_path in st.session_state.processed_files:
-            file_name = os.path.basename(pdf_path)
-            
-            with st.expander(f"📄 {file_name}", expanded=False):
-                col1, col2 = st.columns([1, 3])
-                
-                with col1:
-                    st.write("**Actions:**")
-                    # Download Button
-                    with open(pdf_path, "rb") as f:
-                        st.download_button(
-                            label="⬇️ Download PDF",
-                            data=f,
-                            file_name=file_name,
-                            mime="application/pdf",
-                            key=f"dl_{file_name}"
-                        )
-                
-                with col2:
-                    st.write("**Preview:**")
-                    display_pdf(pdf_path)
 
 # --- TAB 2: LOCAL MODE ---
 with tab_local:
-    st.warning("⚠️ Local Mode interacts directly with your computer's folders (Not for Cloud Use).")
+    st.warning("⚠️ **Local Mode**: Edits files directly on your disk.")
     
+    if 'local_results' not in st.session_state:
+        st.session_state.local_results = []
+
     if 'local_path' not in st.session_state:
         st.session_state.local_path = os.getcwd()
 
@@ -230,14 +244,41 @@ with tab_local:
     if os.path.isdir(path_in):
         os.chdir(path_in)
         mds = glob.glob("*.md")
+        
         if mds:
-            sel = st.multiselect("Select Files:", mds, default=mds)
-            if st.button("Convert Selected", disabled=not sel):
-                with st.status("Converting locally..."):
-                    s, o, e = run_conversion_command(sel)
-                    if s: st.success("Done!")
-                    else: st.error(e)
+            col_sel1, col_sel2 = st.columns([3,1])
+            with col_sel1:
+                sel = st.multiselect("Select Files:", mds, default=mds)
+            with col_sel2:
+                st.write("")
+                st.write("")
+                if st.button("🚀 Convert Local", type="primary", disabled=not sel):
+                    st.session_state.local_results = [] # Reset
+                    
+                    with st.status("Converting locally...", expanded=True) as status:
+                        # 1. Convert
+                        s, o, e = run_conversion_command(sel)
+                        
+                        if s:
+                            status.update(label="✅ Local Conversion Done!", state="complete", expanded=False)
+                            # 2. Collect Results (Absolute Paths)
+                            results = []
+                            for f in sel:
+                                abs_md = os.path.abspath(f)
+                                abs_pdf = os.path.splitext(abs_md)[0] + ".pdf"
+                                if os.path.exists(abs_pdf):
+                                    results.append((abs_md, abs_pdf))
+                            st.session_state.local_results = results
+                        else:
+                            status.update(label="❌ Failed", state="error")
+                            st.error(e)
+            
+            # Display Local Results using the SAME function
+            if st.session_state.local_results:
+                st.info(f"📂 Output Folder: `{path_in}`")
+                show_results(st.session_state.local_results)
+                
         else:
-            st.info("No .md files found.")
+            st.info("No .md files found in this folder.")
     else:
         st.error("Invalid path.")

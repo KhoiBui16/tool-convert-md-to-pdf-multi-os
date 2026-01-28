@@ -60,35 +60,83 @@ The new interface allows you to:
 - **Scan** local folders (Works on Desktop).
 - **Download** PDFs instantly.
 
-**Run Locally:**
+st## 📂 File Structure
 
-```bash
-pip install -r requirements.txt
-streamlit run stream_pdf.py
-```
+Here is the explanation of the files in this repository:
 
-**Deploy to Streamlit Cloud:**
-
-1. Push this code to GitHub.
-2. Go to [share.streamlit.io](https://share.streamlit.io/).
-3. Connect your repo.
-4. **Important**: The `packages.txt` file is automatically detected by Streamlit Cloud to install dependencies. You don't need to do anything extra!
+| File                    | Description                                                                            |
+| :---------------------- | :------------------------------------------------------------------------------------- |
+| **`stream_pdf.py`**     | The main **Streamlit App**. Run this to start the UI.                                  |
+| **`requirements.txt`**  | List of **Python libraries** (Streamlit, Watchdog) required to run the app.            |
+| **`packages.txt`**      | List of **Linux System Packages** (Chromium, Libs) for **Streamlit Cloud** deployment. |
+| `md_to_pdf.py`          | (Legacy) Interactive command-line script for Python.                                   |
+| `convert_md_to_pdf.bat` | (Legacy) Windows shortcut to run the CLI tool.                                         |
+| `convert_md_to_pdf.sh`  | (Legacy) macOS/Linux shortcut to run the CLI tool.                                     |
 
 ---
 
-### 💻 2. Command Line (Legacy)
+## 🔧 Setup Guide (Virtual Environment)
 
-If you prefer the old-school terminal way:
+It is recommended to use a **Virtual Environment** (venv) instead of installing globally or using Conda.
 
-**🪟 On Windows:**
-Double-click `convert_md_to_pdf.bat`.
+### 🪟 On Windows
 
-**🍎/🐧 On macOS / Linux:**
+1.  **Create Environment**:
 
-```bash
-chmod +x convert_md_to_pdf.sh
-./convert_md_to_pdf.sh
-```
+    ```cmd
+    python -m venv venv
+    ```
+
+2.  **Activate**:
+
+    ```cmd
+    .\venv\Scripts\activate
+    ```
+
+3.  **Install Dependencies**:
+
+    ```cmd
+    pip install -r requirements.txt
+    ```
+
+4.  **Run App**:
+    ```cmd
+    streamlit run stream_pdf.py
+    ```
+
+### 🍎/🐧 On macOS / Linux (Ubuntu)
+
+1.  **Create Environment**:
+
+    ```bash
+    python3 -m venv venv
+    ```
+
+2.  **Activate**:
+
+    ```bash
+    source venv/bin/activate
+    ```
+
+3.  **Install Dependencies**:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  **Run App**:
+    ```bash
+    streamlit run stream_pdf.py
+    ```
+
+---
+
+## 🏃 Usage (Web Interface)
+
+Once the app is running:
+
+1.  **Upload Mode**: Drag & Drop MD files -> Convert -> Preview PDF -> Download ZIP.
+2.  **Local Mode**: Select local folder -> Batch Convert -> **View & Download directly in UI**.
 
 ---
 
