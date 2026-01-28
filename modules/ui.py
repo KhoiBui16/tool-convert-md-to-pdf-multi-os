@@ -48,11 +48,22 @@ def render_home():
              st.rerun()
         
         if st.session_state.processed_files:
-            if st.button("🗑️ Clear History", use_container_width=True, help="Remove all files from the viewer session"):
-                st.session_state.processed_files = []
-                st.session_state.viewer_file = None
-                st.success("History cleared!")
-                st.rerun()
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("🗑️ Clear History", use_container_width=True, help="Clear list"):
+                    st.session_state.processed_files = []
+                    st.session_state.viewer_file = None
+                    st.rerun()
+            with c2:
+                if st.button("🧹 Wipe Cache", use_container_width=True, help="Delete physical files from disk"):
+                    import shutil
+                    if os.path.exists(st.session_state.temp_dir):
+                        shutil.rmtree(st.session_state.temp_dir)
+                        os.makedirs(st.session_state.temp_dir)
+                    st.session_state.processed_files = []
+                    st.session_state.viewer_file = None
+                    st.success("Cache wiped!")
+                    st.rerun()
 
         st.divider()
         st.markdown("### 📝 Quick Guide")
@@ -222,14 +233,25 @@ def render_viewer():
              if file_map: st.session_state.viewer_file = list(file_map.values())[0]
 
         if file_map:
-            current_name = os.path.basename(st.session_state.viewer_file)
-            idx = list(file_map.keys()).index(current_name) if current_name in file_map else 0
-            selected_name = st.radio("Select Document:", list(file_map.keys()), index=idx, label_visibility="collapsed")
-            st.session_state.viewer_file = file_map[selected_name]
+            st.write("---")
+            # Use columns for selection and a per-file delete button
+            for name, path in file_map.items():
+                col_n, col_d = st.columns([4, 1])
+                with col_n:
+                    is_active = (st.session_state.viewer_file == path)
+                    if st.button(f"{'👁️' if is_active else '📄'} {name}", key=f"sel_{name}", use_container_width=True):
+                        st.session_state.viewer_file = path
+                        st.rerun()
+                with col_d:
+                    if st.button("❌", key=f"del_{name}", help=f"Remove {name} from list"):
+                        st.session_state.processed_files = [p for p in st.session_state.processed_files if p[1] != path]
+                        if st.session_state.viewer_file == path:
+                            st.session_state.viewer_file = None
+                        st.rerun()
 
             # Zip Download
             st.write("")
-            all_pdfs = list(file_map.values())
+            all_pdfs = [p[1] for p in st.session_state.processed_files]
             if all_pdfs:
                  zip_path = create_zip(all_pdfs)
                  with open(zip_path, "rb") as f:
